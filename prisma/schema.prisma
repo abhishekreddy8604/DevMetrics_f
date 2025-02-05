@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String      @unique
+  name          String?
+  password      String
+  image         String?
+  role          UserRole    @default(USER)
+  skillLevel    SkillLevel  @default(BEGINNER)
+  assessments   Assessment[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Assessment {
+  id            String           @id @default(cuid())
+  title         String
+  description   String?
+  type          AssessmentType
+  status        AssessmentStatus @default(PENDING)
+  questions     Question[]
+  responses     Response[]
+  userId        String
+  user          User             @relation(fields: [userId], references: [id])
+  score         Int?             // Changed to optional by adding ?
+  feedback      Json?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  resumeContent String?          // Added field
+  conversation  Message[]        // Added relation
+}
+
+// New model for storing conversation
+model Message {
+  id           String     @id @default(cuid())
+  content      String
+  role         MessageRole
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  assessmentId String
+  createdAt    DateTime   @default(now())
+}
+
+model Question {
+  id           String         @id @default(cuid())
+  content      String
+  type         QuestionType
+  difficulty   DifficultyLevel
+  assessment   Assessment     @relation(fields: [assessmentId], references: [id])
+  assessmentId String
+  responses    Response[]
+  options      Json?          // For multiple choice questions
+  solution     String?        // Reference solution
+  rubric       Json?          // Evaluation criteria
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Response {
+  id           String     @id @default(cuid())
+  content      String
+  question     Question   @relation(fields: [questionId], references: [id])
+  questionId   String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id])
+  assessmentId String
+  evaluation   Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum AssessmentType {
+  TECHNICAL_INTERVIEW
+  CODING_CHALLENGE
+  SYSTEM_DESIGN
+  ALGORITHM
+}
+
+enum AssessmentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  CODING
+  OPEN_ENDED
+  SYSTEM_DESIGN
+}
+
+enum DifficultyLevel {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
