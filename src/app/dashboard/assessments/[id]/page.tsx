@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Mic, MicOff, User, Bot, Zap, X, Upload } from "lucide-react";
+import { Send, Mic, MicOff, User, Bot, Zap, X, Upload, ChevronRight, ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils";
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { FeedbackView } from "@/components/feedback-view"; // Update this import path
+import { CodeEditor } from "@/components/code-editor";
+import axios from 'axios';
 
 interface Message {
   type: "user" | "assistant" | "status";
@@ -33,6 +35,10 @@ const Page = () => {
   const [resumeContent, setResumeContent] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState("javascript");
+  const [output, setOutput] = useState("");
+  const [isEditorCollapsed, setIsEditorCollapsed] = useState(false);
 
   const { id: assessmentId } = useParams();
 
@@ -181,17 +187,38 @@ const Page = () => {
           content: [
             {
               type: "input_text", // Changed from "text" to "input_text"
-              text: `You are a professional software engineer conducting a technical interview. Review this resume and start the interview immediately with relevant technical questions:
+              text: `You are a professional software engineer tasked with conducting a technical interview using the following guidelines:
 
-${resumeContent}
+Resume Review:
 
-Important:
-1. Ask one question at a time
-2. Wait for my response
-3. Provide constructive feedback
-4. Focus on technical skills from the resume
-5. Keep responses concise and clear
-6. Don't tell the candidate the answer`
+Thoroughly review the provided resume content.
+Identify the candidate's technical skills, experiences, and projects as detailed in the resume.
+Interview Flow:
+
+Start by introducing yourself and explaining the interview process. Make sure the candidate is comfotable and ready for the questions.
+
+Single Question at a Time: Ask one technical question at a time, ensuring that each question is directly related to the skills and experiences mentioned in the resume.
+Wait for Response: After asking each question, pause and wait for the candidate’s response before proceeding to the next question.
+Follow-Up Questions: If necessary, ask follow-up questions that further explore the candidate's understanding and expertise based on their answer.
+Feedback Guidelines:
+
+Constructive Feedback: After each candidate response, provide concise, clear, and constructive feedback. Focus on what was done well and what could be improved, referring specifically to the technical content of the answer.
+Encouragement and Clarity: Ensure that the feedback encourages further discussion and exploration of the topic.
+Focus on Technical Skills:
+
+Concentrate on technical areas highlighted in the resume, such as programming languages, frameworks, system design, algorithms, data structures, and any relevant projects or technologies.
+Tailor your questions to test both theoretical understanding and practical application of these skills.
+Response Style:
+
+Keep your questions, follow-up inquiries, and feedback concise and clear.
+Avoid overly verbose explanations that may confuse or overwhelm the candidate.
+Do Not Reveal Answers:
+
+Refrain from providing the candidate with the correct answers during the interview.
+Ensure that feedback remains constructive without giving away the solution.
+Use the following resume content as the basis for your interview:
+
+${resumeContent}`
             }
           ]
         };
@@ -419,6 +446,32 @@ Important:
     }
   };
 
+  const handleRunCode = async (code: string) => {
+    try {
+      const response = await axios.post('/api/code/execute', {
+        code,
+        language,
+      });
+      setOutput(response.data.output);
+    } catch (error) {
+      console.error('Failed to execute code:', error);
+      setError('Failed to execute code');
+    }
+  };
+
+  const handleSubmitCode = async (code: string) => {
+    try {
+      await fetch(`/api/assessments/${assessmentId}/code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language })
+      });
+    } catch (error) {
+      console.error('Failed to submit code:', error);
+      setError('Failed to submit code');
+    }
+  };
+
   useEffect(() => {
     return () => {
       cleanup().catch(console.error);
@@ -476,7 +529,7 @@ Important:
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4 p-3 sm:space-y-6 sm:p-6">
+    <div className="container mx-auto p-4">
       {error && (
         <Card className="max-w-2xl mx-auto bg-red-50">
           <CardContent className="py-2 sm:py-4">
@@ -569,126 +622,184 @@ Important:
           </CardContent>
         </Card>
       ) : (
-        <>
-          <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-lg sm:text-xl">Voice Chat</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:justify-between">
-                <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-3">
-                  <Button
-                    size="default"
-                    variant={isRecording ? "destructive" : "default"}
-                    onMouseDown={toggleRecording}
-                    onMouseUp={toggleRecording}
-                    onTouchStart={toggleRecording}
-                    onTouchEnd={toggleRecording}
-                    disabled={!isConnected || isSubmitting}
-                    className="w-full sm:w-40"
-                  >
-                    {isRecording ? (
-                      <>
-                        <MicOff className="w-4 h-4 mr-2" />
-                        <span className="text-sm">Release to Send</span>
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="w-4 h-4 mr-2" />
-                        <span className="text-sm">Push to Talk</span>
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleDisconnect}
-                    size="default"
-                    disabled={isDisconnecting || isSubmitting}
-                    className="w-full sm:w-auto"
-                  >
-                    {isDisconnecting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
-                        Disconnecting...
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-4 h-4 mr-2" />
-                        Disconnect
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex flex-col h-[calc(100vh-2rem)] gap-4">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Technical Interview</h1>
+            <div className="flex gap-2">
+              <Button
+                size="default"
+                variant={isRecording ? "destructive" : "default"}
+                onMouseDown={toggleRecording}
+                onMouseUp={toggleRecording}
+                onTouchStart={toggleRecording}
+                onTouchEnd={toggleRecording}
+                disabled={!isConnected || isSubmitting}
+                className="w-full sm:w-40"
+              >
+                {isRecording ? (
+                  <>
+                    <MicOff className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Release to Send</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Push to Talk</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDisconnect}
+                size="default"
+                disabled={isDisconnecting || isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                {isDisconnecting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Disconnect
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-lg sm:text-xl">Conversation</CardTitle>
-            </CardHeader>
-            <CardContent className="p-3 sm:p-6">
-              <div className="space-y-3 max-h-[350px] sm:max-h-[400px] overflow-y-auto p-2 sm:p-4 bg-gray-50 rounded-lg">
-                {messages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "flex",
-                      message.type === "user" ? "justify-end" : "justify-start"
-                    )}>
-                    <div
-                      className={cn(
-                        "max-w-[90%] sm:max-w-[80%] p-2 sm:p-3 rounded-lg text-sm sm:text-base",
-                        message.type === "user" 
-                          ? "bg-blue-500 text-white" 
-                          : "bg-white"
-                      )}>
-                      <p>{message.content}</p>
-                    </div>
+          {/* Main Content */}
+          <div className="flex gap-2 flex-1 min-h-0">
+            {/* Chat Panel */}
+            <div className={cn(
+              "flex flex-col transition-all duration-300",
+              isEditorCollapsed ? "flex-1" : "w-1/2"
+            )}>
+              <Card className="flex-1 flex flex-col">
+                <CardHeader className="border-b">
+                  <CardTitle>Conversation</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-y-auto p-4">
+                  <div className="space-y-3 max-h-[350px] sm:max-h-[400px] overflow-y-auto p-2 sm:p-4 bg-gray-50 rounded-lg">
+                    {messages.map((message, index) => (
+                      <div
+                        key={index}
+                        className={cn(
+                          "flex",
+                          message.type === "user" ? "justify-end" : "justify-start"
+                        )}>
+                        <div
+                          className={cn(
+                            "max-w-[90%] sm:max-w-[80%] p-2 sm:p-3 rounded-lg text-sm sm:text-base",
+                            message.type === "user" 
+                              ? "bg-blue-500 text-white" 
+                              : "bg-white"
+                          )}>
+                          <p>{message.content}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter className="p-3 sm:p-6">
-              <div className="flex gap-2 sm:gap-3 w-full">
-                <Input
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  onKeyUp={(e) => e.key === "Enter" && !isSubmitting && sendMessage()}
-                  disabled={!isConnected || isSubmitting}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={sendMessage} 
-                  disabled={!isConnected || isSubmitting}
-                  variant="default"
-                  size="icon">
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
-          <Button 
-            onClick={handleSubmitInterview}
-            className="w-full"
-            variant="default"
-            size="lg"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                Submitting Interview...
-              </>
-            ) : (
-              'Submit Interview'
-            )}
-          </Button>
-        </>
+                </CardContent>
+                <CardFooter className="border-t p-4">
+                  <div className="flex gap-2 sm:gap-3 w-full">
+                    <Input
+                      value={currentMessage}
+                      onChange={(e) => setCurrentMessage(e.target.value)}
+                      placeholder="Type your message..."
+                      onKeyUp={(e) => e.key === "Enter" && !isSubmitting && sendMessage()}
+                      disabled={!isConnected || isSubmitting}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={sendMessage} 
+                      disabled={!isConnected || isSubmitting}
+                      variant="default"
+                      size="icon">
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardFooter>
+              </Card>
+            </div>
+
+            {/* Collapse Toggle */}
+            <div className="flex items-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditorCollapsed(!isEditorCollapsed)}
+                className="h-8 px-1 hover:bg-gray-100"
+              >
+                {isEditorCollapsed ? (
+                  <ChevronLeft className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {/* Code Editor Panel */}
+            <div className={cn(
+              "flex flex-col transition-all duration-300 overflow-y-auto",
+              isEditorCollapsed 
+                ? "w-0 overflow-hidden opacity-0" 
+                : "w-1/2 opacity-100"
+            )}>
+              {!isEditorCollapsed && (
+                <div className="flex flex-col h-full gap-4 pb-4"> {/* Added pb-4 for bottom padding */}
+                  <Card className="flex-shrink-0"> {/* Changed to flex-shrink-0 */}
+                    <CardHeader className="border-b">
+                      <CardTitle>Code Editor</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0 h-[400px]"> {/* Reduced height */}
+                      <CodeEditor
+                        code={code}
+                        onChange={setCode}
+                        language={language}
+                        onLanguageChange={setLanguage}
+                        onRun={handleRunCode}
+                        onSubmit={handleSubmitCode}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {output && (
+                    <Card className="flex-shrink-0"> {/* Added flex-shrink-0 */}
+                      <CardHeader className="py-2 border-b">
+                        <CardTitle className="text-sm">Output</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <pre className="bg-gray-50 p-3 rounded-lg overflow-x-auto text-sm max-h-[150px] overflow-y-auto font-mono">
+                          {output}
+                        </pre>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="pt-4 border-t mt-auto">
+            <Button 
+              onClick={handleSubmitInterview}
+              variant="default"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Submitting Interview..." : "Submit Interview"}
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
 };
 
-export default Page;
+export default Page;

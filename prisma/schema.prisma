@@ -10,7 +10,7 @@ datasource db {
 model User {
   id            String       @id @default(cuid())
   email         String      @unique
-  name          String?
+  name          String
   password      String
   image         String?
   role          UserRole    @default(USER)
@@ -30,7 +30,7 @@ model Assessment {
   responses     Response[]
   userId        String
   user          User             @relation(fields: [userId], references: [id])
-  score         Int?             // Changed to optional by adding ?
+  score         Float?
   feedback      Json?
   startedAt     DateTime?
   completedAt   DateTime?
